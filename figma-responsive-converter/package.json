@@ -1,0 +1,13 @@
+{
+  "name": "figma-pc-to-mobile-converter",
+  "version": "1.0.0",
+  "description": "Figma plugin to automatically convert PC frames to Mobile frames with responsive design rules",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.90.0",
+    "typescript": "^5.3.3"
+  }
+}
