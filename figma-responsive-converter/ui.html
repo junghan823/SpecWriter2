@@ -242,6 +242,18 @@
       <button class="primary-button" id="convert">변환하기</button>
     </div>
 
+    <div class="divider"></div>
+
+    <div class="section">
+      <div class="section-title">🔧 개발자 도구</div>
+      <button class="secondary-button" id="extract-keys" style="width: 100%;">
+        스타일 Key 추출
+      </button>
+      <p style="font-size: 11px; color: #666; margin-top: 8px;">
+        텍스트를 선택한 후 클릭하면 콘솔에 스타일 Key가 출력됩니다
+      </p>
+    </div>
+
     <div id="message" class="message"></div>
   </div>
 
@@ -268,6 +280,13 @@
     document.getElementById('cancel').onclick = () => {
       parent.postMessage({
         pluginMessage: { type: 'cancel' }
+      }, '*');
+    };
+
+    // 스타일 Key 추출 버튼 클릭
+    document.getElementById('extract-keys').onclick = () => {
+      parent.postMessage({
+        pluginMessage: { type: 'extract-style-keys' }
       }, '*');
     };
 

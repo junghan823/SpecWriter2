@@ -9,23 +9,84 @@ const BREAKPOINTS = {
 };
 // 기준 모바일 너비
 const MOBILE_WIDTH = 375;
-// 타이포그래피 매핑
-const TYPOGRAPHY_MAP = {
-    // title1 (28px) → title2 (22px)
-    'title1': { from: 28, to: 22, fromLineHeight: 38, toLineHeight: 30 },
-    // bodyB (15px/Bold) → captionM (13px/Medium)
-    'bodyB': { from: 15, to: 13, fromWeight: 700, toWeight: 500 },
-    // 유지
-    'subTitle3': { from: 16, to: 16 },
-    'bodyM': { from: 15, to: 15 },
-    'captionM': { from: 13, to: 13 },
-    'tag1Sb': { from: 12, to: 12 },
-    'tag1M': { from: 12, to: 12 },
-    'tag2': { from: 11, to: 11 }
+// Stack 디자인 시스템 텍스트 스타일 Key (라이브러리 스타일)
+const STYLE_KEYS = {
+    'heroTitle': '32b30df26b13168efe601419ea56c413d6668478',
+    'largeTitle': '4b3bd4c2960ceb679c5e3e2d37340d082e45448f',
+    'title1': '6d573fd2e7392e7190996a233bd20f1b080b533a',
+    'title2': 'f6addf813eeb5cda16faa300fb18697926b32cdc',
+    'subTitle1': 'ef6d1719025b8087ae1d62eec1b48a7b94e6608c',
+    'subTitle2': '15a585d082e777f49255f3e94e2bec2103caa60a',
+    'subTitle3': 'a2cddc8d9244746d046f38410ba573ecddf5cc63',
+    'bodyM': 'b63b5c2d8c24f07359b4e5e2c472839d34787196',
+    'bodyB': 'b0bd9399c92c8d53a3fe492bab0398a199670460',
+    'bodyLong': '55a83c7b81a8f00f2f96ef7a420ec4f4338056bb',
+    'bodyCompact': '5e75a0087e491b6775607a86857b5239295ad8e3',
+    'captionSb': '8f29f98aeae41517f932e62c20d8b4004c91664c',
+    'captionM': '47b2c8c5106d9944107996824e6bc3abebc6911b',
+    'tag1Sb': '34600ae4a70d7ee722611713ef5d88a621dc813c',
+    'tag1M': '6d40e4a755943af0f31d46de05fe59c6edb10601',
+    'tag2': '648c4654e1f1d8077b8319760629f5441622a221'
+};
+// PC → Mobile 변환 규칙 (숫자 1 → 2만 변환, 나머지 유지)
+const STYLE_CONVERSION = {
+    'title1': 'title2',
+    'subTitle1': 'subTitle2'
 };
 // 메인 함수
 figma.showUI(__html__, { width: 360, height: 520 });
 figma.ui.onmessage = async (msg) => {
+    // 스타일 Key 추출 (임시 기능)
+    if (msg.type === 'extract-style-keys') {
+        try {
+            const selection = figma.currentPage.selection;
+            if (selection.length === 0) {
+                figma.ui.postMessage({
+                    type: 'error',
+                    message: '텍스트를 선택해주세요.'
+                });
+                return;
+            }
+            const textNode = selection[0];
+            if (textNode.type !== 'TEXT') {
+                figma.ui.postMessage({
+                    type: 'error',
+                    message: '텍스트 노드를 선택해주세요.'
+                });
+                return;
+            }
+            if (!textNode.textStyleId || typeof textNode.textStyleId !== 'string') {
+                figma.ui.postMessage({
+                    type: 'error',
+                    message: '텍스트 스타일이 적용되지 않았습니다.'
+                });
+                return;
+            }
+            const style = await figma.getStyleByIdAsync(textNode.textStyleId);
+            if (!style) {
+                figma.ui.postMessage({
+                    type: 'error',
+                    message: '스타일을 찾을 수 없습니다.'
+                });
+                return;
+            }
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('스타일 이름:', style.name);
+            console.log('스타일 Key:', style.key);
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━');
+            figma.ui.postMessage({
+                type: 'success',
+                message: `스타일 "${style.name}" Key 추출 완료! 콘솔을 확인하세요.`
+            });
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다';
+            figma.ui.postMessage({
+                type: 'error',
+                message: `오류: ${errorMessage}`
+            });
+        }
+    }
     if (msg.type === 'convert-to-mobile') {
         try {
             const selection = figma.currentPage.selection;
@@ -212,62 +273,31 @@ async function convertTypography(node) {
                 const currentStyle = await figma.getStyleByIdAsync(textNode.textStyleId);
                 if (currentStyle) {
                     const styleName = currentStyle.name;
-                    // 변환 매핑
-                    const styleMap = {
-                        'title1': 'title2',
-                        'bodyB': 'captionM'
-                    };
-                    // 스타일 이름에서 변환할 스타일 찾기
-                    for (const [fromStyle, toStyle] of Object.entries(styleMap)) {
-                        if (styleName.includes(fromStyle)) {
-                            // 새로운 스타일 찾기
-                            const allStyles = await figma.getLocalTextStylesAsync();
-                            const newStyle = allStyles.find(style => style.name.includes(toStyle));
-                            if (newStyle) {
-                                // 폰트 로드
-                                const styleNode = textNode.clone();
-                                styleNode.textStyleId = newStyle.id;
-                                await figma.loadFontAsync(styleNode.fontName);
-                                styleNode.remove();
-                                // 스타일 적용
-                                textNode.textStyleId = newStyle.id;
-                                console.log(`Typography changed: ${fromStyle} → ${toStyle}`);
+                    // 변환 규칙 확인 (title1 → title2, subTitle1 → subTitle2)
+                    const targetStyleName = STYLE_CONVERSION[styleName];
+                    if (targetStyleName) {
+                        // 변환할 스타일이 있음
+                        const targetStyleKey = STYLE_KEYS[targetStyleName];
+                        if (targetStyleKey) {
+                            try {
+                                // 라이브러리 스타일 import
+                                const targetStyle = await figma.importStyleByKeyAsync(targetStyleKey);
+                                // 스타일 적용 (비동기)
+                                await textNode.setTextStyleIdAsync(targetStyle.id);
+                                console.log(`✅ Typography changed via style: ${styleName} → ${targetStyleName}`);
                             }
-                            break;
+                            catch (error) {
+                                console.log(`❌ Failed to import style ${targetStyleName}:`, error);
+                            }
+                        }
+                        else {
+                            console.log(`⚠️ Style key not found for: ${targetStyleName}`);
                         }
                     }
+                    // 변환 규칙에 없으면 그대로 유지 (나머지 스타일들)
                 }
             }
-            // 텍스트 스타일이 없는 경우 폰트 사이즈 기반 변환 (fallback)
-            else {
-                await figma.loadFontAsync(textNode.fontName);
-                const fontSize = textNode.fontSize;
-                const fontWeight = textNode.fontName.style;
-                // title1 (28px) → title2 (22px)
-                if (fontSize === 28 && fontWeight.includes('Bold')) {
-                    const allStyles = await figma.getLocalTextStylesAsync();
-                    const title2Style = allStyles.find(style => style.name.includes('title2'));
-                    if (title2Style) {
-                        const styleNode = textNode.clone();
-                        styleNode.textStyleId = title2Style.id;
-                        await figma.loadFontAsync(styleNode.fontName);
-                        styleNode.remove();
-                        textNode.textStyleId = title2Style.id;
-                    }
-                }
-                // bodyB (15px/Bold) → captionM (13px/Medium)
-                else if (fontSize === 15 && fontWeight.includes('Bold')) {
-                    const allStyles = await figma.getLocalTextStylesAsync();
-                    const captionMStyle = allStyles.find(style => style.name.includes('captionM'));
-                    if (captionMStyle) {
-                        const styleNode = textNode.clone();
-                        styleNode.textStyleId = captionMStyle.id;
-                        await figma.loadFontAsync(styleNode.fontName);
-                        styleNode.remove();
-                        textNode.textStyleId = captionMStyle.id;
-                    }
-                }
-            }
+            // 텍스트 스타일이 없는 경우는 그대로 유지
         }
         // 컴포넌트 인스턴스의 내부는 건너뛰기
         if (node.type === 'INSTANCE') {
@@ -478,29 +508,51 @@ async function addMobileConstraints(frame) {
 }
 // 유틸리티 함수들
 function findNodeByName(parent, name) {
-    for (const child of parent.children) {
-        if (child.name.includes(name)) {
-            return child;
+    try {
+        for (const child of parent.children) {
+            try {
+                if (child.name.includes(name)) {
+                    return child;
+                }
+            }
+            catch (e) {
+                // 노드 이름 접근 불가 시 건너뛰기
+                continue;
+            }
+            if ('children' in child) {
+                const found = findNodeByName(child, name);
+                if (found)
+                    return found;
+            }
         }
-        if ('children' in child) {
-            const found = findNodeByName(child, name);
-            if (found)
-                return found;
-        }
+    }
+    catch (error) {
+        // 접근 불가능한 노드는 건너뛰기
     }
     return null;
 }
 // 정확한 이름으로 노드 찾기 (부분 일치 아님)
 function findNodeByExactName(parent, name) {
-    for (const child of parent.children) {
-        if (child.name === name) {
-            return child;
+    try {
+        for (const child of parent.children) {
+            try {
+                if (child.name === name) {
+                    return child;
+                }
+            }
+            catch (e) {
+                // 노드 이름 접근 불가 시 건너뛰기
+                continue;
+            }
+            if ('children' in child) {
+                const found = findNodeByExactName(child, name);
+                if (found)
+                    return found;
+            }
         }
-        if ('children' in child) {
-            const found = findNodeByExactName(child, name);
-            if (found)
-                return found;
-        }
+    }
+    catch (error) {
+        // 접근 불가능한 노드는 건너뛰기
     }
     return null;
 }
